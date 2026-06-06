@@ -1,4 +1,4 @@
-import { initDB, addQuestion, getQuestionsByArea, deleteQuestion, addFile, getFiles, deleteFile } from './db.js';
+import { initDB, addQuestion, getQuestionsByArea, deleteQuestion, addFile, getFiles, deleteFile, exportarBanco, restaurarBanco } from './db.js';
 import { parsePDF, parseDocx } from './parser.js';
 import { seleccionarPreguntasAleatorias, exportarWord, exportarExcel, exportarPDF } from './evaluacion.js';
 
@@ -699,5 +699,49 @@ async function generateTextForAllAreas() {
   showModal('Banco Completo de Preguntas ICFES', combinedText);
 }
 
+// ── Backup / Restore ──────────────────────────────────────────────────────────
+
+async function handleExportarBanco() {
+  try {
+    const result = await exportarBanco();
+    alert(`✅ Respaldo generado correctamente.\n${result.files} archivos y ${result.questions} preguntas exportadas.`);
+  } catch (err) {
+    alert('❌ Error al generar el respaldo: ' + err.message);
+  }
+}
+
+async function handleRestaurarBanco(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const confirmar = confirm(
+    `¿Restaurar banco desde "${file.name}"?\n\nEsto agregará las preguntas del respaldo a tu banco actual sin borrar lo que ya tienes.`
+  );
+  if (!confirmar) {
+    event.target.value = '';
+    return;
+  }
+
+  try {
+    const result = await restaurarBanco(file);
+    alert(`✅ Banco restaurado correctamente.\n${result.files} archivos y ${result.questions} preguntas importadas.`);
+    await init(); // refresh dashboard counts
+  } catch (err) {
+    alert('❌ Error al restaurar: ' + err.message);
+  }
+  event.target.value = '';
+}
+
 // Start application
-window.addEventListener('DOMContentLoaded', init);
+window.addEventListener('DOMContentLoaded', () => {
+  init();
+
+  // Backup buttons
+  const btnExportar = document.getElementById('btn-exportar-banco');
+  const inputRestaurar = document.getElementById('input-restaurar-banco');
+  const btnRestaurar = document.getElementById('btn-restaurar-banco');
+
+  if (btnExportar) btnExportar.addEventListener('click', handleExportarBanco);
+  if (btnRestaurar) btnRestaurar.addEventListener('click', () => inputRestaurar.click());
+  if (inputRestaurar) inputRestaurar.addEventListener('change', handleRestaurarBanco);
+});
