@@ -45,6 +45,17 @@
       </div>
 
       <div class="sidebar-footer">
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+          <button id="btn-exportar-banco" style="width:100%;padding:8px 12px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:8px;color:inherit;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar Respaldo
+          </button>
+          <button id="btn-restaurar-banco" style="width:100%;padding:8px 12px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:8px;color:inherit;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Restaurar Respaldo
+          </button>
+          <input type="file" id="input-restaurar-banco" accept=".json" style="display:none;">
+        </div>
         <p>ICFES Extractor v1.0</p>
         <p style="margin-top: 4px; opacity: 0.7;">Almacenamiento Local Seguro</p>
       </div>
@@ -133,12 +144,12 @@
           <div class="dropzone" id="upload-dropzone">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
             <p style="font-weight: 600; margin-bottom: 4px;">Arrastra tu archivo aquí o haz clic para buscar</p>
-            <p style="font-size: 12px; color: var(--text-secondary);">Formato permitido: Word (.docx)</p>
-            <input type="file" id="file-input" accept=".docx" style="display: none;">
+            <p style="font-size: 12px; color: var(--text-secondary);">Formatos permitidos: PDF (.pdf), Word (.docx)</p>
+            <input type="file" id="file-input" accept=".pdf,.docx" style="display: none;">
           </div>
 
           <div class="file-info" id="selected-file-info">
-            <span id="file-info-name" style="font-size: 14px; font-weight: 500;">documento.docx</span>
+            <span id="file-info-name" style="font-size: 14px; font-weight: 500;">documento.pdf</span>
             <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" id="btn-clear-file">Quitar</button>
           </div>
 
