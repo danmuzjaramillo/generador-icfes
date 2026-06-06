@@ -401,7 +401,10 @@ export async function parseDocx(arrayBuffer, progressCallback) {
   const imagesByQuestionNumber = {};
 
   const qNumInText = (text) => {
-    const m = text.match(/(?:^|[\s\(])(?:[Pp]regunta\s+|[Nn]°\s*)?([1-9][0-9]?)\s*[\.\-\)\:]/);
+    // Only match if the number appears at the VERY START of the trimmed text.
+    // The (\s|$) after the separator prevents matching "12." at the end of a
+    // sentence like "...aterriza en el extremo 12."
+    const m = text.trimStart().match(/^(?:[Pp]regunta\s+|[Nn]°\s*)?([1-9][0-9]?)\s*[\.\-\)\:](\s|$)/);
     return m ? parseInt(m[1], 10) : null;
   };
 
@@ -420,13 +423,18 @@ export async function parseDocx(arrayBuffer, progressCallback) {
       // 1. Check the paragraph's own text (covers "4. [img]" in same <p>)
       assignedQ = qNumInText(para.textContent);
 
-      // 2. Check the immediately preceding sibling (covers "<p>14.</p><p>[img]</p>")
+      // 2. Walk ALL previous siblings backwards (covers "<p>14.</p><p>[img]</p>"
+      //    and images embedded mid-question body text several paragraphs in)
       if (assignedQ === null) {
-        const prevSib = para.previousElementSibling;
-        if (prevSib) assignedQ = qNumInText(prevSib.textContent);
+        let prevSib = para.previousElementSibling;
+        while (prevSib) {
+          assignedQ = qNumInText(prevSib.textContent);
+          if (assignedQ !== null) break;
+          prevSib = prevSib.previousElementSibling;
+        }
       }
 
-      // 3. If still not found, walk forward through siblings
+      // 3. If still not found, walk forward through siblings (image before question number)
       if (assignedQ === null) {
         let sibling = para.nextElementSibling;
         while (sibling) {
