@@ -317,54 +317,54 @@ export async function parsePDF(arrayBuffer, progressCallback) {
 async function extractImagesFromPDFPage(page) {
   const operatorList = await page.getOperatorList();
   const images = [];
-  
-  // We iterate through operations to find images
+  const seenKeys = new Set();
+
   for (let i = 0; i < operatorList.fnArray.length; i++) {
     const fn = operatorList.fnArray[i];
-    // PaintImageXObject or PaintInlineImageXObject
     if (fn === pdfjsLib.OPS.paintImageXObject || fn === pdfjsLib.OPS.paintInlineImageXObject) {
       const imgKey = operatorList.argsArray[i][0];
-      try {
-        const imgObj = await new Promise((resolve, reject) => {
-          page.objs.get(imgKey, (obj) => {
-            if (obj) resolve(obj);
-            else reject(new Error('Image object not found'));
-          });
-        });
 
-        if (imgObj && imgObj.data) {
-          // Convert Uint8ClampedArray/Uint8Array to canvas and Base64
-          const width = imgObj.width;
-          const height = imgObj.height;
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          
-          const imgData = ctx.createImageData(width, height);
-          
-          // PDF.js image data format can vary. Usually it is RGB or RGBA.
-          if (imgObj.data.length === width * height * 4) {
-            imgData.data.set(imgObj.data);
-          } else if (imgObj.data.length === width * height * 3) {
-            // RGB format, need to add Alpha
-            let srcIdx = 0;
-            let destIdx = 0;
-            for (let j = 0; j < width * height; j++) {
-              imgData.data[destIdx] = imgObj.data[srcIdx];     // R
-              imgData.data[destIdx + 1] = imgObj.data[srcIdx + 1]; // G
-              imgData.data[destIdx + 2] = imgObj.data[srcIdx + 2]; // B
-              imgData.data[destIdx + 3] = 255;                   // A
-              srcIdx += 3;
-              destIdx += 4;
-            }
-          } else {
-            continue; // Unsupported image format for direct canvas rendering
+      // Skip duplicates (same image referenced multiple times on a page)
+      if (seenKeys.has(imgKey)) continue;
+      seenKeys.add(imgKey);
+
+      try {
+        // Wrap page.objs.get in a timeout — if the object never resolves, skip it
+        const imgObj = await Promise.race([
+          new Promise((resolve) => {
+            page.objs.get(imgKey, (obj) => resolve(obj || null));
+          }),
+          new Promise((resolve) => setTimeout(() => resolve(null), 3000))
+        ]);
+
+        if (!imgObj || !imgObj.data || !imgObj.width || !imgObj.height) continue;
+
+        const { width, height, data } = imgObj;
+
+        // Skip tiny images (icons, decorations) — less than 50x50
+        if (width < 50 || height < 50) continue;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.createImageData(width, height);
+
+        if (data.length === width * height * 4) {
+          imgData.data.set(data);
+        } else if (data.length === width * height * 3) {
+          for (let j = 0, s = 0, d = 0; j < width * height; j++, s += 3, d += 4) {
+            imgData.data[d] = data[s];
+            imgData.data[d + 1] = data[s + 1];
+            imgData.data[d + 2] = data[s + 2];
+            imgData.data[d + 3] = 255;
           }
-          
-          ctx.putImageData(imgData, 0, 0);
-          images.push(canvas.toDataURL('image/png'));
+        } else {
+          continue;
         }
+
+        ctx.putImageData(imgData, 0, 0);
+        images.push(canvas.toDataURL('image/png'));
       } catch (err) {
         console.warn('Error reading PDF image object:', err);
       }
@@ -401,10 +401,7 @@ export async function parseDocx(arrayBuffer, progressCallback) {
   const imagesByQuestionNumber = {};
 
   const qNumInText = (text) => {
-    // Only match if the number appears at the VERY START of the trimmed text.
-    // Requires either a space/end after the separator (prevents matching "12."
-    // at the end of a sentence like "...aterriza en el extremo 12.").
-    const m = text.trimStart().match(/^(?:[Pp]regunta\s+|[Nn]°\s*)?([1-9][0-9]?)\s*[\.\-\)\:](\s|$)/);
+    const m = text.match(/(?:^|[\s\(])(?:[Pp]regunta\s+|[Nn]°\s*)?([1-9][0-9]?)\s*[\.\-\)\:]/);
     return m ? parseInt(m[1], 10) : null;
   };
 
@@ -423,18 +420,13 @@ export async function parseDocx(arrayBuffer, progressCallback) {
       // 1. Check the paragraph's own text (covers "4. [img]" in same <p>)
       assignedQ = qNumInText(para.textContent);
 
-      // 2. Walk backwards through siblings (covers "<p>14.</p><p>[img]</p>"
-      //    and cases where image is embedded mid-question body text)
+      // 2. Check the immediately preceding sibling (covers "<p>14.</p><p>[img]</p>")
       if (assignedQ === null) {
-        let prevSib = para.previousElementSibling;
-        while (prevSib) {
-          assignedQ = qNumInText(prevSib.textContent);
-          if (assignedQ !== null) break;
-          prevSib = prevSib.previousElementSibling;
-        }
+        const prevSib = para.previousElementSibling;
+        if (prevSib) assignedQ = qNumInText(prevSib.textContent);
       }
 
-      // 3. If still not found, walk forward through siblings (image before question number)
+      // 3. If still not found, walk forward through siblings
       if (assignedQ === null) {
         let sibling = para.nextElementSibling;
         while (sibling) {
