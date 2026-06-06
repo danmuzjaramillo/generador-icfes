@@ -178,3 +178,95 @@ export async function updateQuestionCount(fileId, count) {
     getReq.onerror = (e) => reject(e.target.error);
   });
 }
+
+// ── Backup / Restore ──────────────────────────────────────────────────────────
+
+/**
+ * Exports the entire database (files + questions) as a JSON backup file.
+ * The file is downloaded automatically in the browser.
+ */
+export async function exportarBanco() {
+  const db = await initDB();
+
+  const files = await new Promise((resolve, reject) => {
+    const tx = db.transaction(['files'], 'readonly');
+    const req = tx.objectStore('files').getAll();
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+
+  const questions = await new Promise((resolve, reject) => {
+    const tx = db.transaction(['questions'], 'readonly');
+    const req = tx.objectStore('questions').getAll();
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+
+  const backup = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    files,
+    questions
+  };
+
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `banco_icfes_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  return { files: files.length, questions: questions.length };
+}
+
+/**
+ * Restores the database from a JSON backup file.
+ * Merges with existing data — does not delete what's already there.
+ * Returns counts of records imported.
+ */
+export async function restaurarBanco(jsonFile) {
+  const text = await jsonFile.text();
+  let backup;
+  try {
+    backup = JSON.parse(text);
+  } catch {
+    throw new Error('El archivo no es un respaldo válido.');
+  }
+
+  if (!backup.files || !backup.questions) {
+    throw new Error('El archivo no tiene el formato esperado.');
+  }
+
+  const db = await initDB();
+
+  // Build a map of old fileId → new fileId to relink questions
+  const fileIdMap = {};
+
+  for (const file of backup.files) {
+    const oldId = file.id;
+    const { id: _id, ...fileData } = file; // strip old id, let autoIncrement assign new one
+    const newId = await new Promise((resolve, reject) => {
+      const tx = db.transaction(['files'], 'readwrite');
+      const req = tx.objectStore('files').add(fileData);
+      req.onsuccess = e => resolve(e.target.result);
+      req.onerror = e => reject(e.target.error);
+    });
+    fileIdMap[oldId] = newId;
+  }
+
+  let questionsImported = 0;
+  for (const question of backup.questions) {
+    const { id: _id, fileId, ...qData } = question;
+    const newFileId = fileIdMap[fileId] ?? null;
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(['questions'], 'readwrite');
+      const req = tx.objectStore('questions').add({ ...qData, fileId: newFileId });
+      req.onsuccess = () => resolve();
+      req.onerror = e => reject(e.target.error);
+    });
+    questionsImported++;
+  }
+
+  return { files: backup.files.length, questions: questionsImported };
+}
