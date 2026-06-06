@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ICFES Extractor Premium - Gestor de Preguntas</title>
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- CSS Style -->
+  <link rel="stylesheet" href="/style.css">
+  
+  <!-- PDF.js & Mammoth.js Browser CDNs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <!-- docx (Word generation) & SheetJS (Excel generation) -->
+  <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="logo-container">
+          <div class="logo-icon">I</div>
+          <div class="logo-text">
+            <h1>ICFES Extractor</h1>
+            <span>Evaluación Colombia</span>
+          </div>
+        </div>
+
+        <nav class="nav-menu">
+          <a class="nav-item active" id="nav-dashboard" data-view="dashboard">
+            <svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+            Dashboard
+          </a>
+          <a class="nav-item" id="nav-upload" data-view="upload">
+            <svg viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            Subir Documento
+          </a>
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        <p>ICFES Extractor v1.0</p>
+        <p style="margin-top: 4px; opacity: 0.7;">Almacenamiento Local Seguro</p>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="main-header">
+        <h2 class="page-title" id="page-title-text">Dashboard</h2>
+        <div class="header-actions">
+          <button class="btn btn-accent" id="btn-generar-evaluacion">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            Generar Evaluación
+          </button>
+          <button class="btn btn-secondary" id="btn-generate-text-all">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Generar Texto del Banco
+          </button>
+        </div>
+      </header>
+
+      <!-- View: Dashboard -->
+      <section class="view-panel" id="view-dashboard">
+        <p class="area-subtitle" style="margin-top: -10px; margin-bottom: 24px;">Selecciona un área para ver las preguntas extraídas y guardadas en la base de datos.</p>
+        
+        <div class="areas-grid">
+          <!-- Matemáticas -->
+          <div class="area-card matematicas" data-area="matematicas" id="card-matematicas">
+            <div class="area-icon">📊</div>
+            <div class="area-count" id="count-matematicas">0</div>
+            <div class="area-title">Matemáticas</div>
+            <div class="area-subtitle">Preguntas de razonamiento y formulación</div>
+          </div>
+          <!-- Lectura Crítica -->
+          <div class="area-card lectura_critica" data-area="lectura_critica" id="card-lectura_critica">
+            <div class="area-icon">📖</div>
+            <div class="area-count" id="count-lectura_critica">0</div>
+            <div class="area-title">Lectura Crítica</div>
+            <div class="area-subtitle">Textos continuos e discontinuos</div>
+          </div>
+          <!-- Sociales y Ciudadanas -->
+          <div class="area-card sociales_ciudadanas" data-area="sociales_ciudadanas" id="card-sociales_ciudadanas">
+            <div class="area-icon">⚖️</div>
+            <div class="area-count" id="count-sociales_ciudadanas">0</div>
+            <div class="area-title">Sociales y Ciudadanas</div>
+            <div class="area-subtitle">Competencias ciudadanas e historia</div>
+          </div>
+          <!-- Ciencias Naturales -->
+          <div class="area-card ciencias_naturales" data-area="ciencias_naturales" id="card-ciencias_naturales">
+            <div class="area-icon">🧪</div>
+            <div class="area-count" id="count-ciencias_naturales">0</div>
+            <div class="area-title">Ciencias Naturales</div>
+            <div class="area-subtitle">Física, Química, Biología y CTS</div>
+          </div>
+          <!-- Inglés -->
+          <div class="area-card ingles" data-area="ingles" id="card-ingles">
+            <div class="area-icon">🇬🇧</div>
+            <div class="area-count" id="count-ingles">0</div>
+            <div class="area-title">Inglés</div>
+            <div class="area-subtitle">Comprensión lectora y gramática</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- View: Upload -->
+      <section class="view-panel hidden" id="view-upload">
+        <div class="upload-container">
+          <h3 style="font-size: 24px; margin-bottom: 8px;">Subir Nuevo Documento</h3>
+          <p style="color: var(--text-secondary); margin-bottom: 32px; font-size: 14px;">
+            Sube un archivo PDF o Word para extraer automáticamente las preguntas que correspondan únicamente a enunciados individuales.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label" for="select-upload-area">Área Temática ICFES</label>
+            <select class="select-control" id="select-upload-area">
+              <option value="matematicas">📊 Matemáticas</option>
+              <option value="lectura_critica">📖 Lectura Crítica</option>
+              <option value="sociales_ciudadanas">⚖️ Sociales y Ciudadanas</option>
+              <option value="ciencias_naturales">🧪 Ciencias Naturales</option>
+              <option value="ingles">🇬🇧 Inglés</option>
+            </select>
+          </div>
+
+          <!-- Dropzone -->
+          <div class="dropzone" id="upload-dropzone">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <p style="font-weight: 600; margin-bottom: 4px;">Arrastra tu archivo aquí o haz clic para buscar</p>
+            <p style="font-size: 12px; color: var(--text-secondary);">Formatos permitidos: PDF (.pdf), Word (.docx)</p>
+            <input type="file" id="file-input" accept=".pdf,.docx" style="display: none;">
+          </div>
+
+          <div class="file-info" id="selected-file-info">
+            <span id="file-info-name" style="font-size: 14px; font-weight: 500;">documento.pdf</span>
+            <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" id="btn-clear-file">Quitar</button>
+          </div>
+
+          <!-- Progress -->
+          <div class="progress-container" id="upload-progress-container">
+            <div class="progress-label">
+              <span id="progress-status-text">Procesando y extrayendo preguntas...</span>
+              <span id="progress-percentage">0%</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="progress-bar-fill"></div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" style="width: 100%; margin-top: 24px;" id="btn-process-file" disabled>
+            Comenzar Extracción
+          </button>
+        </div>
+
+        <!-- Extraction Review Results -->
+        <div class="extraction-results hidden" id="extraction-results-wrapper">
+          <div class="results-header">
+            <div>
+              <h3 style="font-size: 20px;">Preguntas Extraídas</h3>
+              <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;" id="extracted-count-summary">Se detectaron 0 preguntas válidas.</p>
+            </div>
+            <button class="btn btn-accent" id="btn-save-all-extracted">Guardar Seleccionadas a la BBDD</button>
+          </div>
+
+          <div class="questions-list" id="extracted-questions-list">
+            <!-- Dynamically populated questions cards -->
+          </div>
+        </div>
+      </section>
+
+      <!-- View: Area Questions Browser -->
+      <section class="view-panel hidden" id="view-area-browser">
+        <button class="btn btn-secondary back-btn" id="btn-back-to-dashboard">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Volver al Dashboard
+        </button>
+
+        <div class="results-header">
+          <div>
+            <h3 style="font-size: 24px;" id="browser-area-title">Área</h3>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;" id="browser-area-count-summary">0 preguntas guardadas en esta categoría.</p>
+          </div>
+          <button class="btn btn-primary" id="btn-generate-text-area">
+            Generar Texto del Área
+          </button>
+        </div>
+
+        <div class="saved-questions-container" id="saved-questions-list">
+          <!-- Dynamically populated saved questions -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal: Generar Evaluación -->
+  <div class="modal-overlay" id="evaluacion-modal">
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 style="display:flex;align-items:center;gap:10px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          Generar Evaluación
+        </h3>
+        <button class="btn btn-secondary" style="padding:4px 8px;border:none;font-size:18px;" id="btn-close-eval-modal">×</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:20px;">
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="eval-select-area">Área Temática</label>
+          <select class="select-control" id="eval-select-area">
+            <option value="matematicas">📊 Matemáticas</option>
+            <option value="lectura_critica">📖 Lectura Crítica</option>
+            <option value="sociales_ciudadanas">⚖️ Sociales y Ciudadanas</option>
+            <option value="ciencias_naturales">🧪 Ciencias Naturales</option>
+            <option value="ingles">🇬🇧 Inglés</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="eval-num-preguntas">Número de preguntas (máx. disponibles)</label>
+          <input type="number" id="eval-num-preguntas" class="select-control" value="30" min="1" max="100">
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;padding:14px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:10px;">
+          <input type="checkbox" id="eval-incluir-claves" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" checked>
+          <label for="eval-incluir-claves" style="cursor:pointer;font-size:14px;font-weight:500;">
+            Incluir claves de respuesta (respuestas correctas marcadas)
+          </label>
+        </div>
+
+        <p id="eval-warning-text" style="font-size:13px;color:#f59e0b;display:none;"></p>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <p class="form-label" style="margin-bottom:4px;">Formato de descarga</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+            <button class="btn btn-primary" id="btn-eval-word" style="flex-direction:column;gap:4px;padding:14px 8px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              Word (.docx)
+            </button>
+            <button class="btn btn-secondary" id="btn-eval-excel" style="flex-direction:column;gap:4px;padding:14px 8px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+              Excel (.xlsx)
+            </button>
+            <button class="btn btn-secondary" id="btn-eval-pdf" style="flex-direction:column;gap:4px;padding:14px 8px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              PDF (Imprimir)
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Text Output Modal -->
+
+  <div class="modal-overlay" id="text-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Preguntas Generadas</h3>
+        <button class="btn btn-secondary" style="padding: 4px 8px; border: none; font-size: 18px;" id="btn-close-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <textarea class="generated-text-area" id="generated-text-box" readonly></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-copy-text">Copiar al Portapapeles</button>
+        <button class="btn btn-primary" id="btn-close-modal-ok">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS Code Injection -->
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
