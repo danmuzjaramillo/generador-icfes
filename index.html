@@ -3,9 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ICFES Extractor - Gestor de Preguntas</title>
-  <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23134e6f'/><stop offset='100%25' stop-color='%231a3a4a'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><text x='16' y='22' font-family='Georgia,serif' font-size='19' font-weight='bold' fill='white' text-anchor='middle'>I</text></svg>">
+  <title>ICFES Extractor Premium - Gestor de Preguntas</title>
   <!-- Google Fonts: Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,17 +45,6 @@
       </div>
 
       <div class="sidebar-footer">
-        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-          <button id="btn-exportar-banco" style="width:100%;padding:8px 12px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:8px;color:inherit;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Exportar Respaldo
-          </button>
-          <button id="btn-restaurar-banco" style="width:100%;padding:8px 12px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:8px;color:inherit;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            Restaurar Respaldo
-          </button>
-          <input type="file" id="input-restaurar-banco" accept=".json" style="display:none;">
-        </div>
         <p>ICFES Extractor v1.0</p>
         <p style="margin-top: 4px; opacity: 0.7;">Almacenamiento Local Seguro</p>
       </div>
@@ -250,7 +237,7 @@
 
         <div style="display:flex;flex-direction:column;gap:8px;">
           <p class="form-label" style="margin-bottom:4px;">Formato de descarga</p>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
             <button class="btn btn-primary" id="btn-eval-word" style="flex-direction:column;gap:4px;padding:14px 8px;">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
               Word (.docx)
@@ -262,6 +249,10 @@
             <button class="btn btn-secondary" id="btn-eval-pdf" style="flex-direction:column;gap:4px;padding:14px 8px;">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               PDF (Imprimir)
+            </button>
+            <button class="btn btn-secondary" id="btn-eval-gforms" style="flex-direction:column;gap:4px;padding:14px 8px;border-color:rgba(66,133,244,0.4);background:rgba(66,133,244,0.08);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/><circle cx="12" cy="13" r="3"/></svg>
+              Google Forms
             </button>
           </div>
         </div>
