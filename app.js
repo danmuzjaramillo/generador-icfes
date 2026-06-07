@@ -1,6 +1,6 @@
-import { initDB, addQuestion, getQuestionsByArea, deleteQuestion, addFile, getFiles, deleteFile, exportarBanco, restaurarBanco } from './db.js';
+import { initDB, addQuestion, getQuestionsByArea, deleteQuestion, addFile, getFiles, deleteFile } from './db.js';
 import { parsePDF, parseDocx } from './parser.js';
-import { seleccionarPreguntasAleatorias, exportarWord, exportarExcel, exportarPDF } from './evaluacion.js';
+import { seleccionarPreguntasAleatorias, exportarWord, exportarExcel, exportarPDF, exportarGoogleForms } from './evaluacion.js';
 
 // DOM Elements
 const views = {
@@ -59,6 +59,7 @@ const evalWarningText = document.getElementById('eval-warning-text');
 const btnEvalWord = document.getElementById('btn-eval-word');
 const btnEvalExcel = document.getElementById('btn-eval-excel');
 const btnEvalPdf = document.getElementById('btn-eval-pdf');
+const btnEvalGforms = document.getElementById('btn-eval-gforms');
 
 // State variables
 let activeView = 'dashboard';
@@ -163,7 +164,7 @@ function setupEventListeners() {
     const incluirClaves = evalIncluirClaves.checked;
 
     // Disable buttons during generation
-    [btnEvalWord, btnEvalExcel, btnEvalPdf].forEach(b => b.setAttribute('disabled', 'true'));
+    [btnEvalWord, btnEvalExcel, btnEvalPdf, btnEvalGforms].forEach(b => b.setAttribute('disabled', 'true'));
     evalWarningText.style.display = 'none';
 
     try {
@@ -182,18 +183,21 @@ function setupEventListeners() {
         exportarExcel(questions, area, incluirClaves);
       } else if (formato === 'pdf') {
         exportarPDF(questions, area, incluirClaves);
+      } else if (formato === 'gforms') {
+        exportarGoogleForms(questions, area, incluirClaves);
       }
 
     } catch (err) {
       alert(`Error al generar la evaluación: ${err.message}`);
     } finally {
-      [btnEvalWord, btnEvalExcel, btnEvalPdf].forEach(b => b.removeAttribute('disabled'));
+      [btnEvalWord, btnEvalExcel, btnEvalPdf, btnEvalGforms].forEach(b => b.removeAttribute('disabled'));
     }
   }
 
   btnEvalWord.addEventListener('click', () => ejecutarExportacion('word'));
   btnEvalExcel.addEventListener('click', () => ejecutarExportacion('excel'));
   btnEvalPdf.addEventListener('click', () => ejecutarExportacion('pdf'));
+  btnEvalGforms.addEventListener('click', () => ejecutarExportacion('gforms'));
 }
 
 // Switch between SPA views
@@ -699,49 +703,5 @@ async function generateTextForAllAreas() {
   showModal('Banco Completo de Preguntas ICFES', combinedText);
 }
 
-// ── Backup / Restore ──────────────────────────────────────────────────────────
-
-async function handleExportarBanco() {
-  try {
-    const result = await exportarBanco();
-    alert(`✅ Respaldo generado correctamente.\n${result.files} archivos y ${result.questions} preguntas exportadas.`);
-  } catch (err) {
-    alert('❌ Error al generar el respaldo: ' + err.message);
-  }
-}
-
-async function handleRestaurarBanco(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const confirmar = confirm(
-    `¿Restaurar banco desde "${file.name}"?\n\nEsto agregará las preguntas del respaldo a tu banco actual sin borrar lo que ya tienes.`
-  );
-  if (!confirmar) {
-    event.target.value = '';
-    return;
-  }
-
-  try {
-    const result = await restaurarBanco(file);
-    alert(`✅ Banco restaurado correctamente.\n${result.files} archivos y ${result.questions} preguntas importadas.`);
-    await init(); // refresh dashboard counts
-  } catch (err) {
-    alert('❌ Error al restaurar: ' + err.message);
-  }
-  event.target.value = '';
-}
-
 // Start application
-window.addEventListener('DOMContentLoaded', () => {
-  init();
-
-  // Backup buttons
-  const btnExportar = document.getElementById('btn-exportar-banco');
-  const inputRestaurar = document.getElementById('input-restaurar-banco');
-  const btnRestaurar = document.getElementById('btn-restaurar-banco');
-
-  if (btnExportar) btnExportar.addEventListener('click', handleExportarBanco);
-  if (btnRestaurar) btnRestaurar.addEventListener('click', () => inputRestaurar.click());
-  if (inputRestaurar) inputRestaurar.addEventListener('change', handleRestaurarBanco);
-});
+window.addEventListener('DOMContentLoaded', init);
