@@ -51,26 +51,10 @@ export async function seleccionarPreguntasAleatorias(area, count = 30) {
 // ─────────────────────────────────────────────
 export async function exportarWord(questions, area, incluirClaves) {
   const {
-    Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType,
+    Document, Packer, Paragraph, TextRun, AlignmentType,
     HeadingLevel, BorderStyle, LevelFormat, PageNumber,
     Header, Footer, PageBreak, WidthType
   } = window.docx;
-
-  // Converts a base64 data URL to Uint8Array for ImageRun
-  function base64ToUint8Array(dataUrl) {
-    const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
-  }
-
-  function imgType(dataUrl) {
-    if (dataUrl.startsWith('data:image/png')) return 'png';
-    if (dataUrl.startsWith('data:image/gif')) return 'gif';
-    if (dataUrl.startsWith('data:image/bmp')) return 'bmp';
-    return 'jpg';
-  }
 
   const areaLabel = areaLabels[area] || area;
   const fecha = new Date().toLocaleDateString('es-CO', {
@@ -200,29 +184,6 @@ export async function exportarWord(questions, area, incluirClaves) {
           border: { left: { style: BorderStyle.SINGLE, size: 8, color: '6366F1' } }
         })
       );
-    }
-
-    // Images (shown before options, as per document format)
-    if (q.images && q.images.length > 0) {
-      for (const imgSrc of q.images) {
-        try {
-          children.push(
-            new Paragraph({
-              children: [
-                new ImageRun({
-                  data: base64ToUint8Array(imgSrc),
-                  type: imgType(imgSrc),
-                  transformation: { width: 400, height: 280 }
-                })
-              ],
-              alignment: AlignmentType.CENTER,
-              spacing: { before: 100, after: 100 }
-            })
-          );
-        } catch (e) {
-          console.warn('No se pudo insertar imagen en Word:', e);
-        }
-      }
     }
 
     // Options
@@ -386,7 +347,7 @@ export function exportarExcel(questions, area, incluirClaves) {
   const areaLabel = areaLabels[area] || area;
 
   const wsData = [
-    ['N°', 'Enunciado', 'Opción A', 'Opción B', 'Opción C', 'Opción D', 'Imagen', ...(incluirClaves ? ['Respuesta Correcta'] : [])]
+    ['N°', 'Enunciado', 'Opción A', 'Opción B', 'Opción C', 'Opción D', ...(incluirClaves ? ['Respuesta Correcta'] : [])]
   ];
 
   questions.forEach((q, idx) => {
@@ -397,7 +358,6 @@ export function exportarExcel(questions, area, incluirClaves) {
       q.options?.B || '',
       q.options?.C || '',
       q.options?.D || '',
-      (q.images && q.images.length > 0) ? `Sí (${q.images.length})` : '',
       ...(incluirClaves ? [q.correctOption || ''] : [])
     ];
     wsData.push(row);
@@ -414,7 +374,6 @@ export function exportarExcel(questions, area, incluirClaves) {
     { wch: 30 }, // B
     { wch: 30 }, // C
     { wch: 30 }, // D
-    { wch: 10 }, // Imagen
     ...(incluirClaves ? [{ wch: 18 }] : [])
   ];
 
@@ -513,15 +472,6 @@ export function exportarPDF(questions, area, incluirClaves) {
           text-align: center;
         }
         table.claves tr:nth-child(even) td { background: #f9f9f9; }
-        .q-image {
-          text-align: center;
-          margin: 6px 0 10px 0;
-        }
-        .q-image img {
-          max-width: 100%;
-          max-height: 220px;
-          object-fit: contain;
-        }
         .ans-cell { color: #10b981; font-weight: bold; }
         .footer { position: fixed; bottom: 12px; width: 100%; text-align: center; font-size: 9pt; color: #aaa; }
         @media print {
@@ -552,11 +502,6 @@ export function exportarPDF(questions, area, incluirClaves) {
     html += `<p><span class="q-num">${idx + 1}.</span> <span class="q-body">${escapeHtml(q.bodyText || '')}</span></p>`;
     if (q.headerText && q.headerText.trim()) {
       html += `<div class="q-header">${escapeHtml(q.headerText)}</div>`;
-    }
-    if (q.images && q.images.length > 0) {
-      q.images.forEach(src => {
-        html += `<div class="q-image"><img src="${src}" alt="imagen pregunta ${idx + 1}"></div>`;
-      });
     }
     html += `<div class="options">`;
     ['A', 'B', 'C', 'D'].forEach(letter => {
@@ -603,7 +548,107 @@ export function exportarPDF(questions, area, incluirClaves) {
 }
 
 // ─────────────────────────────────────────────
-// Helpers
+// GOOGLE FORMS EXPORT  (Apps Script .gs file)
+// ─────────────────────────────────────────────
+export function exportarGoogleForms(questions, area, incluirClaves) {
+  const areaLabel = areaLabels[area] || area;
+  const titulo = `Evaluación ICFES — ${areaLabel}`;
+
+  // Build the Apps Script code
+  let script = `// ============================================================
+// Apps Script generado por ICFES-Extractor
+// Área: ${areaLabel}  |  Preguntas: ${questions.length}
+// Generado: ${new Date().toLocaleString('es-CO')}
+//
+// INSTRUCCIONES:
+// 1. Ve a https://script.google.com y crea un proyecto nuevo
+// 2. Borra el código que aparece y pega este script completo
+// 3. Haz clic en "Ejecutar" (▶) — acepta los permisos si los solicita
+// 4. Abre tu Google Drive: encontrarás el formulario creado automáticamente
+// ============================================================
+
+function crearFormulario() {
+  const form = FormApp.create('${titulo.replace(/'/g, "\\'")}');
+  form.setDescription('Evaluación tipo ICFES — ${areaLabel.replace(/'/g, "\\'")} — Generada con ICFES-Extractor');
+  form.setIsQuiz(true);
+  form.setShuffleQuestions(false);
+  form.setCollectEmail(false);
+
+  // Página de datos del estudiante
+  form.addTextItem()
+    .setTitle('Nombre completo')
+    .setRequired(true);
+  form.addTextItem()
+    .setTitle('Grado / Curso')
+    .setRequired(true);
+
+  // Separador
+  form.addPageBreakItem()
+    .setTitle('Preguntas')
+    .setHelpText('Selecciona la opción correcta para cada pregunta.');
+
+`;
+
+  questions.forEach((q, idx) => {
+    const enunciado = (q.bodyText || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ').trim();
+    const optA = (q.options?.A || '').replace(/'/g, "\\'").trim();
+    const optB = (q.options?.B || '').replace(/'/g, "\\'").trim();
+    const optC = (q.options?.C || '').replace(/'/g, "\\'").trim();
+    const optD = (q.options?.D || '').replace(/'/g, "\\'").trim();
+
+    // Map correct option letter to index (A=0, B=1, C=2, D=3)
+    const correctIndex = { A: 0, B: 1, C: 2, D: 3 }[q.correctOption] ?? 0;
+
+    script += `
+  // ── Pregunta ${idx + 1} ──
+  var item${idx + 1} = form.addMultipleChoiceItem();
+  item${idx + 1}.setTitle('${idx + 1}. ${enunciado}');
+  item${idx + 1}.setRequired(true);
+`;
+
+    if (incluirClaves && q.correctOption) {
+      script += `  item${idx + 1}.setChoices([
+    item${idx + 1}.createChoice('A. ${optA}', ${correctIndex === 0}),
+    item${idx + 1}.createChoice('B. ${optB}', ${correctIndex === 1}),
+    item${idx + 1}.createChoice('C. ${optC}', ${correctIndex === 2}),
+    item${idx + 1}.createChoice('D. ${optD}', ${correctIndex === 3})
+  ]);
+  item${idx + 1}.setPoints(1);
+`;
+    } else {
+      script += `  item${idx + 1}.setChoices([
+    item${idx + 1}.createChoice('A. ${optA}'),
+    item${idx + 1}.createChoice('B. ${optB}'),
+    item${idx + 1}.createChoice('C. ${optC}'),
+    item${idx + 1}.createChoice('D. ${optD}')
+  ]);
+`;
+    }
+  });
+
+  script += `
+  // Configuración final del quiz
+  var settings = form.getSettings();
+  form.setShowLinkToRespondAgain(false);
+
+  Logger.log('✅ Formulario creado: ' + form.getEditUrl());
+  Logger.log('🔗 URL para estudiantes: ' + form.getPublishedUrl());
+
+  // Muestra la URL en un popup
+  var html = HtmlService.createHtmlOutput(
+    '<h3>✅ Formulario creado exitosamente</h3>' +
+    '<p><b>Editar:</b> <a href="' + form.getEditUrl() + '" target="_blank">Abrir en Google Forms</a></p>' +
+    '<p><b>Compartir con estudiantes:</b> <a href="' + form.getPublishedUrl() + '" target="_blank">' + form.getPublishedUrl() + '</a></p>'
+  ).setWidth(450).setHeight(180);
+  SpreadsheetApp.getUi ? SpreadsheetApp.getUi().showModalDialog(html, 'Formulario listo') : Logger.log(form.getPublishedUrl());
+}
+`;
+
+  // Download as .gs file
+  const blob = new Blob([script], { type: 'text/plain' });
+  descargarBlob(blob, `GoogleForm_${areaLabel}_${getFechaArchivo()}.gs`);
+}
+
 // ─────────────────────────────────────────────
 function descargarBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
