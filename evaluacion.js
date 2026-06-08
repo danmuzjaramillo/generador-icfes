@@ -646,8 +646,17 @@ function crearFormulario() {
   
 `;
 
+  const escapeJsString = (str) => {
+    return (str || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\r\n/g, '\\n')
+      .replace(/\r/g, '\\n')
+      .replace(/\n/g, '\\n');
+  };
+
   questions.forEach((q, idx) => {
-    const bodyText = (q.bodyText || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    const bodyText = escapeJsString(q.bodyText);
     
     scriptContent += `  // Pregunta ${idx + 1}\n`;
     scriptContent += `  var item${idx} = form.addMultipleChoiceItem();\n`;
@@ -660,7 +669,7 @@ function crearFormulario() {
     ['A', 'B', 'C', 'D'].forEach(letter => {
       const optVal = q.options?.[letter] || '';
       if (!optVal) return;
-      const optValEscaped = optVal.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const optValEscaped = escapeJsString(optVal);
       const isCorrect = incluirClaves && correctLetter === letter;
       
       if (incluirClaves) {
