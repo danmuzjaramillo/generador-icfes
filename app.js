@@ -1,6 +1,6 @@
 import { initDB, addQuestion, getQuestionsByArea, deleteQuestion, addFile, getFiles, deleteFile, exportarBanco, restaurarBanco } from './db.js';
 import { parsePDF, parseDocx } from './parser.js';
-import { seleccionarPreguntasAleatorias, exportarWord, exportarExcel, exportarPDF } from './evaluacion.js';
+import { seleccionarPreguntasAleatorias, exportarWord, exportarExcel, exportarPDF, exportarGoogleForms } from './evaluacion.js';
 
 // DOM Elements
 const views = {
@@ -59,12 +59,15 @@ const evalWarningText = document.getElementById('eval-warning-text');
 const btnEvalWord = document.getElementById('btn-eval-word');
 const btnEvalExcel = document.getElementById('btn-eval-excel');
 const btnEvalPdf = document.getElementById('btn-eval-pdf');
+const btnEvalGforms = document.getElementById('btn-eval-gforms');
+const btnNuevaSeleccion = document.getElementById('btn-nueva-seleccion');
 
 // State variables
 let activeView = 'dashboard';
 let currentBrowsingArea = '';
 let currentFile = null;
 let extractedQuestions = []; // Temporary questions parsed but not yet saved
+let currentGeneratedEvaluation = null; // Guardar la evaluación aleatoria generada
 
 // Area Labels Mapping
 const areaLabels = {
@@ -157,20 +160,44 @@ function setupEventListeners() {
     }
   });
 
-  async function ejecutarExportacion(formato) {
+  async function obtenerEvaluacionGenerada(forzarNueva = false) {
     const area = evalSelectArea.value;
     const count = parseInt(evalNumPreguntas.value, 10) || 30;
+
+    if (!forzarNueva && currentGeneratedEvaluation && 
+        currentGeneratedEvaluation.area === area && 
+        currentGeneratedEvaluation.requestedCount === count) {
+      return currentGeneratedEvaluation;
+    }
+
+    const { questions, warning } = await seleccionarPreguntasAleatorias(area, count);
+    currentGeneratedEvaluation = { area, requestedCount: count, questions, warning };
+    
+    // Update the warning UI in the modal
+    if (warning) {
+      evalWarningText.textContent = warning;
+      evalWarningText.style.display = 'block';
+    } else {
+      evalWarningText.style.display = 'none';
+    }
+
+    return currentGeneratedEvaluation;
+  }
+
+  async function ejecutarExportacion(formato) {
+    const area = evalSelectArea.value;
     const incluirClaves = evalIncluirClaves.checked;
 
     // Disable buttons during generation
-    [btnEvalWord, btnEvalExcel, btnEvalPdf].forEach(b => b.setAttribute('disabled', 'true'));
+    [btnEvalWord, btnEvalExcel, btnEvalPdf, btnEvalGforms, btnNuevaSeleccion].forEach(b => b.setAttribute('disabled', 'true'));
     evalWarningText.style.display = 'none';
 
     try {
-      const { questions, warning } = await seleccionarPreguntasAleatorias(area, count);
+      const evalData = await obtenerEvaluacionGenerada(false);
+      const questions = evalData.questions;
 
-      if (warning) {
-        evalWarningText.textContent = warning;
+      if (evalData.warning) {
+        evalWarningText.textContent = evalData.warning;
         evalWarningText.style.display = 'block';
       }
 
@@ -182,18 +209,40 @@ function setupEventListeners() {
         exportarExcel(questions, area, incluirClaves);
       } else if (formato === 'pdf') {
         exportarPDF(questions, area, incluirClaves);
+      } else if (formato === 'gforms') {
+        exportarGoogleForms(questions, area, incluirClaves);
       }
 
     } catch (err) {
       alert(`Error al generar la evaluación: ${err.message}`);
     } finally {
-      [btnEvalWord, btnEvalExcel, btnEvalPdf].forEach(b => b.removeAttribute('disabled'));
+      [btnEvalWord, btnEvalExcel, btnEvalPdf, btnEvalGforms, btnNuevaSeleccion].forEach(b => b.removeAttribute('disabled'));
     }
   }
 
   btnEvalWord.addEventListener('click', () => ejecutarExportacion('word'));
   btnEvalExcel.addEventListener('click', () => ejecutarExportacion('excel'));
   btnEvalPdf.addEventListener('click', () => ejecutarExportacion('pdf'));
+  btnEvalGforms.addEventListener('click', () => ejecutarExportacion('gforms'));
+
+  btnNuevaSeleccion.addEventListener('click', async () => {
+    btnNuevaSeleccion.setAttribute('disabled', 'true');
+    const originalText = btnNuevaSeleccion.textContent;
+    btnNuevaSeleccion.textContent = 'Generando...';
+    try {
+      await obtenerEvaluacionGenerada(true);
+      alert('¡Nueva selección de preguntas generada con éxito!');
+    } catch (err) {
+      alert(`Error al generar nueva selección: ${err.message}`);
+    } finally {
+      btnNuevaSeleccion.removeAttribute('disabled');
+      btnNuevaSeleccion.textContent = originalText;
+    }
+  });
+
+  // Reset current selection when parameters change
+  evalSelectArea.addEventListener('change', () => { currentGeneratedEvaluation = null; });
+  evalNumPreguntas.addEventListener('input', () => { currentGeneratedEvaluation = null; });
 }
 
 // Switch between SPA views
@@ -252,8 +301,8 @@ async function browseArea(area) {
 // Set uploaded file
 function setFile(file) {
   const extension = file.name.split('.').pop().toLowerCase();
-  if (extension !== 'pdf' && extension !== 'docx') {
-    alert('Por favor, selecciona un archivo válido (.pdf o .docx)');
+  if (extension !== 'docx') {
+    alert('Por favor, selecciona un archivo válido (.docx)');
     return;
   }
   currentFile = file;
@@ -318,11 +367,7 @@ async function processUploadedFile() {
       }
     };
 
-    if (extension === 'pdf') {
-      questionsList = await parsePDF(arrayBuffer, onProgress);
-    } else {
-      questionsList = await parseDocx(arrayBuffer, onProgress);
-    }
+    questionsList = await parseDocx(arrayBuffer, onProgress);
 
     extractedQuestions = questionsList.map((q, idx) => ({
       ...q,
