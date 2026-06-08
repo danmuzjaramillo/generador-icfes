@@ -51,10 +51,26 @@ export async function seleccionarPreguntasAleatorias(area, count = 30) {
 // ─────────────────────────────────────────────
 export async function exportarWord(questions, area, incluirClaves) {
   const {
-    Document, Packer, Paragraph, TextRun, AlignmentType,
+    Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType,
     HeadingLevel, BorderStyle, LevelFormat, PageNumber,
     Header, Footer, PageBreak, WidthType
   } = window.docx;
+
+  // Converts a base64 data URL to Uint8Array for ImageRun
+  function base64ToUint8Array(dataUrl) {
+    const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function imgType(dataUrl) {
+    if (dataUrl.startsWith('data:image/png')) return 'png';
+    if (dataUrl.startsWith('data:image/gif')) return 'gif';
+    if (dataUrl.startsWith('data:image/bmp')) return 'bmp';
+    return 'jpg';
+  }
 
   const areaLabel = areaLabels[area] || area;
   const fecha = new Date().toLocaleDateString('es-CO', {
@@ -184,6 +200,29 @@ export async function exportarWord(questions, area, incluirClaves) {
           border: { left: { style: BorderStyle.SINGLE, size: 8, color: '6366F1' } }
         })
       );
+    }
+
+    // Images (before options, as per document format)
+    if (q.images && q.images.length > 0) {
+      for (const imgSrc of q.images) {
+        try {
+          children.push(
+            new Paragraph({
+              children: [
+                new ImageRun({
+                  data: base64ToUint8Array(imgSrc),
+                  type: imgType(imgSrc),
+                  transformation: { width: 400, height: 280 }
+                })
+              ],
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 100, after: 100 }
+            })
+          );
+        } catch (e) {
+          console.warn('No se pudo insertar imagen en Word:', e);
+        }
+      }
     }
 
     // Options
@@ -548,108 +587,7 @@ export function exportarPDF(questions, area, incluirClaves) {
 }
 
 // ─────────────────────────────────────────────
-// GOOGLE FORMS EXPORT  (Apps Script .gs file)
-// ─────────────────────────────────────────────
-export function exportarGoogleForms(questions, area, incluirClaves) {
-  const areaLabel = areaLabels[area] || area;
-  const titulo = `Evaluación ICFES — ${areaLabel}`;
-
-  // Build the Apps Script code
-  let script = `// ============================================================
-// Apps Script generado por ICFES-Extractor
-// Área: ${areaLabel}  |  Preguntas: ${questions.length}
-// Generado: ${new Date().toLocaleString('es-CO')}
-//
-// INSTRUCCIONES:
-// 1. Ve a https://script.google.com y crea un proyecto nuevo
-// 2. Borra el código que aparece y pega este script completo
-// 3. Haz clic en "Ejecutar" (▶) — acepta los permisos si los solicita
-// 4. Abre tu Google Drive: encontrarás el formulario creado automáticamente
-// ============================================================
-
-function crearFormulario() {
-  const form = FormApp.create('${titulo.replace(/'/g, "\\'")}');
-  form.setDescription('Evaluación tipo ICFES — ${areaLabel.replace(/'/g, "\\'")} — Generada con ICFES-Extractor');
-  form.setIsQuiz(true);
-  form.setShuffleQuestions(false);
-  form.setCollectEmail(false);
-
-  // Página de datos del estudiante
-  form.addTextItem()
-    .setTitle('Nombre completo')
-    .setRequired(true);
-  form.addTextItem()
-    .setTitle('Grado / Curso')
-    .setRequired(true);
-
-  // Separador
-  form.addPageBreakItem()
-    .setTitle('Preguntas')
-    .setHelpText('Selecciona la opción correcta para cada pregunta.');
-
-`;
-
-  questions.forEach((q, idx) => {
-    const enunciado = (q.bodyText || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ').trim();
-    const optA = (q.options?.A || '').replace(/'/g, "\\'").trim();
-    const optB = (q.options?.B || '').replace(/'/g, "\\'").trim();
-    const optC = (q.options?.C || '').replace(/'/g, "\\'").trim();
-    const optD = (q.options?.D || '').replace(/'/g, "\\'").trim();
-
-    // Map correct option letter to index (A=0, B=1, C=2, D=3)
-    const correctIndex = { A: 0, B: 1, C: 2, D: 3 }[q.correctOption] ?? 0;
-
-    script += `
-  // ── Pregunta ${idx + 1} ──
-  var item${idx + 1} = form.addMultipleChoiceItem();
-  item${idx + 1}.setTitle('${idx + 1}. ${enunciado}');
-  item${idx + 1}.setRequired(true);
-`;
-
-    if (incluirClaves && q.correctOption) {
-      script += `  item${idx + 1}.setChoices([
-    item${idx + 1}.createChoice('A. ${optA}', ${correctIndex === 0}),
-    item${idx + 1}.createChoice('B. ${optB}', ${correctIndex === 1}),
-    item${idx + 1}.createChoice('C. ${optC}', ${correctIndex === 2}),
-    item${idx + 1}.createChoice('D. ${optD}', ${correctIndex === 3})
-  ]);
-  item${idx + 1}.setPoints(1);
-`;
-    } else {
-      script += `  item${idx + 1}.setChoices([
-    item${idx + 1}.createChoice('A. ${optA}'),
-    item${idx + 1}.createChoice('B. ${optB}'),
-    item${idx + 1}.createChoice('C. ${optC}'),
-    item${idx + 1}.createChoice('D. ${optD}')
-  ]);
-`;
-    }
-  });
-
-  script += `
-  // Configuración final del quiz
-  form.setShowLinkToRespondAgain(false);
-
-  var editUrl = form.getEditUrl();
-  var publishUrl = form.getPublishedUrl();
-
-  Logger.log('✅ Formulario creado: ' + editUrl);
-  Logger.log('🔗 URL para estudiantes: ' + publishUrl);
-
-  // Mostrar URLs en el log — ve a Ver > Registros para copiarlas
-  Browser.msgBox(
-    'Formulario creado exitosamente',
-    'URL para editar:\\n' + editUrl + '\\n\\nURL para estudiantes:\\n' + publishUrl,
-    Browser.Buttons.OK
-  );
-}
-`;
-
-  // Download as .gs file
-  const blob = new Blob([script], { type: 'text/plain' });
-  descargarBlob(blob, `GoogleForm_${areaLabel}_${getFechaArchivo()}.gs`);
-}
-
+// Helpers
 // ─────────────────────────────────────────────
 function descargarBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
