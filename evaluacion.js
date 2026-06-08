@@ -589,7 +589,92 @@ export function exportarPDF(questions, area, incluirClaves) {
 // ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
-function descargarBlob(blob, filename) {
+// GOOGLE FORMS EXPORT  (Apps Script .gs file)
+// ─────────────────────────────────────────────
+export function exportarGoogleForms(questions, area, incluirClaves) {
+  const areaLabel = areaLabels[area] || area;
+  const titulo = `Evaluación ICFES — ${areaLabel}`;
+
+  let script = `// ============================================================
+// Apps Script generado por ICFES-Extractor
+// Área: ${areaLabel}  |  Preguntas: ${questions.length}
+// Generado: ${new Date().toLocaleString('es-CO')}
+//
+// INSTRUCCIONES:
+// 1. Ve a https://script.google.com y crea un proyecto nuevo
+// 2. Borra el código que aparece y pega este script completo
+// 3. Haz clic en "Ejecutar" (▶) — acepta los permisos si los solicita
+// 4. Abre tu Google Drive: encontrarás el formulario creado automáticamente
+// ============================================================
+
+function crearFormulario() {
+  const form = FormApp.create('${titulo.replace(/'/g, "\\'")}');
+  form.setDescription('Evaluación tipo ICFES — ${areaLabel.replace(/'/g, "\\'")} — Generada con ICFES-Extractor');
+  form.setIsQuiz(true);
+  form.setShuffleQuestions(false);
+  form.setCollectEmail(false);
+
+  form.addTextItem().setTitle('Nombre completo').setRequired(true);
+  form.addTextItem().setTitle('Grado / Curso').setRequired(true);
+  form.addPageBreakItem().setTitle('Preguntas').setHelpText('Selecciona la opción correcta para cada pregunta.');
+
+`;
+
+  questions.forEach((q, idx) => {
+    const enunciado = (q.bodyText || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ').trim();
+    const optA = (q.options?.A || '').replace(/'/g, "\\'").trim();
+    const optB = (q.options?.B || '').replace(/'/g, "\\'").trim();
+    const optC = (q.options?.C || '').replace(/'/g, "\\'").trim();
+    const optD = (q.options?.D || '').replace(/'/g, "\\'").trim();
+    const correctIndex = { A: 0, B: 1, C: 2, D: 3 }[q.correctOption] ?? 0;
+
+    script += `
+  // ── Pregunta ${idx + 1} ──
+  var item${idx + 1} = form.addMultipleChoiceItem();
+  item${idx + 1}.setTitle('${idx + 1}. ${enunciado}');
+  item${idx + 1}.setRequired(true);
+`;
+    if (incluirClaves && q.correctOption) {
+      script += `  item${idx + 1}.setChoices([
+    item${idx + 1}.createChoice('A. ${optA}', ${correctIndex === 0}),
+    item${idx + 1}.createChoice('B. ${optB}', ${correctIndex === 1}),
+    item${idx + 1}.createChoice('C. ${optC}', ${correctIndex === 2}),
+    item${idx + 1}.createChoice('D. ${optD}', ${correctIndex === 3})
+  ]);
+  item${idx + 1}.setPoints(1);
+`;
+    } else {
+      script += `  item${idx + 1}.setChoices([
+    item${idx + 1}.createChoice('A. ${optA}'),
+    item${idx + 1}.createChoice('B. ${optB}'),
+    item${idx + 1}.createChoice('C. ${optC}'),
+    item${idx + 1}.createChoice('D. ${optD}')
+  ]);
+`;
+    }
+  });
+
+  script += `
+  form.setShowLinkToRespondAgain(false);
+
+  var editUrl = form.getEditUrl();
+  var publishUrl = form.getPublishedUrl();
+  Logger.log('✅ Formulario creado: ' + editUrl);
+  Logger.log('🔗 URL para estudiantes: ' + publishUrl);
+
+  Browser.msgBox(
+    'Formulario creado exitosamente',
+    'URL para editar:\\n' + editUrl + '\\n\\nURL para estudiantes:\\n' + publishUrl,
+    Browser.Buttons.OK
+  );
+}
+`;
+
+  const blob = new Blob([script], { type: 'text/plain' });
+  descargarBlob(blob, `GoogleForm_${areaLabel}_${getFechaArchivo()}.gs`);
+}
+
+// ─────────────────────────────────────────────
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
