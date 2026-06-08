@@ -629,3 +629,53 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/\n/g, '<br>');
 }
+
+export function exportarGoogleForms(questions, area, incluirClaves) {
+  const areaLabel = areaLabels[area] || area;
+  
+  let scriptContent = `/**
+ * Script de Google Apps Script para crear un formulario automáticamente.
+ * Copia y pega este código en la consola de Google Apps Script (script.google.com).
+ * Luego ejecuta la función 'crearFormulario'.
+ */
+
+function crearFormulario() {
+  var form = FormApp.create('Evaluación de ${areaLabel}');
+  form.setDescription('Evaluación generada automáticamente');
+  form.setIsQuiz(${incluirClaves ? 'true' : 'false'});
+  
+`;
+
+  questions.forEach((q, idx) => {
+    const bodyText = (q.bodyText || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    
+    scriptContent += `  // Pregunta ${idx + 1}\n`;
+    scriptContent += `  var item${idx} = form.addMultipleChoiceItem();\n`;
+    scriptContent += `  item${idx}.setTitle("${idx + 1}. ${bodyText}");\n`;
+    
+    scriptContent += `  item${idx}.setChoices([\n`;
+    const choices = [];
+    const correctLetter = q.correctOption;
+    
+    ['A', 'B', 'C', 'D'].forEach(letter => {
+      const optVal = q.options?.[letter] || '';
+      if (!optVal) return;
+      const optValEscaped = optVal.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const isCorrect = incluirClaves && correctLetter === letter;
+      
+      if (incluirClaves) {
+        choices.push(`    item${idx}.createChoice("${letter}. ${optValEscaped}", ${isCorrect})`);
+      } else {
+        choices.push(`    item${idx}.createChoice("${letter}. ${optValEscaped}")`);
+      }
+    });
+    
+    scriptContent += choices.join(',\n') + '\n  ]);\n\n';
+  });
+
+  scriptContent += `  Logger.log('Formulario creado con éxito: ' + form.getEditUrl());\n`;
+  scriptContent += `}\n`;
+
+  const blob = new Blob([scriptContent], { type: 'text/plain;charset=utf-8' });
+  descargarBlob(blob, `CrearFormulario_${areaLabel}_${getFechaArchivo()}.gs`);
+}
