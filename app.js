@@ -66,6 +66,7 @@ let activeView = 'dashboard';
 let currentBrowsingArea = '';
 let currentFile = null;
 let extractedQuestions = []; // Temporary questions parsed but not yet saved
+let currentEvaluacion = null; // Holds the current random selection (shared across all export formats)
 
 // Area Labels Mapping
 const areaLabels = {
@@ -143,37 +144,64 @@ function setupEventListeners() {
   btnGenerarEvaluacion.addEventListener('click', () => {
     evaluacionModal.classList.add('active');
     evalWarningText.style.display = 'none';
+    currentEvaluacion = null; // Nueva selección al abrir el modal
   });
 
-  btnCloseEvalModal.addEventListener('click', () => evaluacionModal.classList.remove('active'));
+  btnCloseEvalModal.addEventListener('click', () => {
+    evaluacionModal.classList.remove('active');
+    currentEvaluacion = null;
+  });
 
   evaluacionModal.addEventListener('click', (e) => {
-    if (e.target === evaluacionModal) evaluacionModal.classList.remove('active');
+    if (e.target === evaluacionModal) {
+      evaluacionModal.classList.remove('active');
+      currentEvaluacion = null;
+    }
   });
+
+  // Resetear selección si cambia el área o la cantidad
+  evalSelectArea.addEventListener('change', () => { currentEvaluacion = null; });
+  evalNumPreguntas.addEventListener('change', () => { currentEvaluacion = null; });
 
   // Pre-fill area selector with currently browsed area if in browser view
   btnGenerarEvaluacion.addEventListener('click', () => {
     if (activeView === 'browser' && currentBrowsingArea) {
       evalSelectArea.value = currentBrowsingArea;
+      currentEvaluacion = null;
     }
   });
+
+  // Botón Nueva Selección
+  const btnNuevaSeleccion = document.getElementById('btn-nueva-seleccion');
+  if (btnNuevaSeleccion) {
+    btnNuevaSeleccion.addEventListener('click', () => {
+      currentEvaluacion = null;
+      evalWarningText.style.display = 'none';
+      btnNuevaSeleccion.textContent = '✓ Nueva selección lista';
+      setTimeout(() => { btnNuevaSeleccion.textContent = '🔀 Nueva Selección'; }, 1500);
+    });
+  }
 
   async function ejecutarExportacion(formato) {
     const area = evalSelectArea.value;
     const count = parseInt(evalNumPreguntas.value, 10) || 30;
     const incluirClaves = evalIncluirClaves.checked;
 
-    // Disable buttons during generation
     [btnEvalWord, btnEvalExcel, btnEvalPdf, btnEvalGforms].forEach(b => b.setAttribute('disabled', 'true'));
     evalWarningText.style.display = 'none';
 
     try {
-      const { questions, warning } = await seleccionarPreguntasAleatorias(area, count);
-
-      if (warning) {
-        evalWarningText.textContent = warning;
-        evalWarningText.style.display = 'block';
+      // Reutilizar la selección existente o generar una nueva
+      if (!currentEvaluacion || currentEvaluacion.area !== area || currentEvaluacion.count !== count) {
+        const { questions, warning } = await seleccionarPreguntasAleatorias(area, count);
+        currentEvaluacion = { questions, area, count };
+        if (warning) {
+          evalWarningText.textContent = warning;
+          evalWarningText.style.display = 'block';
+        }
       }
+
+      const { questions } = currentEvaluacion;
 
       if (formato === 'word') {
         if (!window.docx) throw new Error('La librería docx no está cargada. Verifica tu conexión a internet.');
