@@ -630,16 +630,18 @@ function crearFormulario() {
   // Configuración final del quiz
   form.setShowLinkToRespondAgain(false);
 
-  Logger.log('✅ Formulario creado: ' + form.getEditUrl());
-  Logger.log('🔗 URL para estudiantes: ' + form.getPublishedUrl());
+  var editUrl = form.getEditUrl();
+  var publishUrl = form.getPublishedUrl();
 
-  // Muestra la URL en un popup
-  var html = HtmlService.createHtmlOutput(
-    '<h3>✅ Formulario creado exitosamente</h3>' +
-    '<p><b>Editar:</b> <a href="' + form.getEditUrl() + '" target="_blank">Abrir en Google Forms</a></p>' +
-    '<p><b>Compartir con estudiantes:</b> <a href="' + form.getPublishedUrl() + '" target="_blank">' + form.getPublishedUrl() + '</a></p>'
-  ).setWidth(450).setHeight(180);
-  SpreadsheetApp.getUi ? SpreadsheetApp.getUi().showModalDialog(html, 'Formulario listo') : Logger.log(form.getPublishedUrl());
+  Logger.log('✅ Formulario creado: ' + editUrl);
+  Logger.log('🔗 URL para estudiantes: ' + publishUrl);
+
+  // Mostrar URLs en el log — ve a Ver > Registros para copiarlas
+  Browser.msgBox(
+    'Formulario creado exitosamente',
+    'URL para editar:\\n' + editUrl + '\\n\\nURL para estudiantes:\\n' + publishUrl,
+    Browser.Buttons.OK
+  );
 }
 `;
 
