@@ -1,6 +1,6 @@
-import { initDB, addQuestion, getQuestionsByArea, deleteQuestion, addFile, getFiles, deleteFile } from './db.js';
+import { initDB, addQuestion, getQuestionsByArea, deleteQuestion, addFile, getFiles, deleteFile, exportarBanco, restaurarBanco } from './db.js';
 import { parsePDF, parseDocx } from './parser.js';
-import { seleccionarPreguntasAleatorias, exportarWord, exportarExcel, exportarPDF, exportarGoogleForms } from './evaluacion.js';
+import { seleccionarPreguntasAleatorias, exportarWord, exportarExcel, exportarPDF } from './evaluacion.js';
 
 // DOM Elements
 const views = {
@@ -59,14 +59,12 @@ const evalWarningText = document.getElementById('eval-warning-text');
 const btnEvalWord = document.getElementById('btn-eval-word');
 const btnEvalExcel = document.getElementById('btn-eval-excel');
 const btnEvalPdf = document.getElementById('btn-eval-pdf');
-const btnEvalGforms = document.getElementById('btn-eval-gforms');
 
 // State variables
 let activeView = 'dashboard';
 let currentBrowsingArea = '';
 let currentFile = null;
 let extractedQuestions = []; // Temporary questions parsed but not yet saved
-let currentEvaluacion = null; // Holds the current random selection (shared across all export formats)
 
 // Area Labels Mapping
 const areaLabels = {
@@ -144,64 +142,37 @@ function setupEventListeners() {
   btnGenerarEvaluacion.addEventListener('click', () => {
     evaluacionModal.classList.add('active');
     evalWarningText.style.display = 'none';
-    currentEvaluacion = null; // Nueva selección al abrir el modal
   });
 
-  btnCloseEvalModal.addEventListener('click', () => {
-    evaluacionModal.classList.remove('active');
-    currentEvaluacion = null;
-  });
+  btnCloseEvalModal.addEventListener('click', () => evaluacionModal.classList.remove('active'));
 
   evaluacionModal.addEventListener('click', (e) => {
-    if (e.target === evaluacionModal) {
-      evaluacionModal.classList.remove('active');
-      currentEvaluacion = null;
-    }
+    if (e.target === evaluacionModal) evaluacionModal.classList.remove('active');
   });
-
-  // Resetear selección si cambia el área o la cantidad
-  evalSelectArea.addEventListener('change', () => { currentEvaluacion = null; });
-  evalNumPreguntas.addEventListener('change', () => { currentEvaluacion = null; });
 
   // Pre-fill area selector with currently browsed area if in browser view
   btnGenerarEvaluacion.addEventListener('click', () => {
     if (activeView === 'browser' && currentBrowsingArea) {
       evalSelectArea.value = currentBrowsingArea;
-      currentEvaluacion = null;
     }
   });
-
-  // Botón Nueva Selección
-  const btnNuevaSeleccion = document.getElementById('btn-nueva-seleccion');
-  if (btnNuevaSeleccion) {
-    btnNuevaSeleccion.addEventListener('click', () => {
-      currentEvaluacion = null;
-      evalWarningText.style.display = 'none';
-      btnNuevaSeleccion.textContent = '✓ Nueva selección lista';
-      setTimeout(() => { btnNuevaSeleccion.textContent = '🔀 Nueva Selección'; }, 1500);
-    });
-  }
 
   async function ejecutarExportacion(formato) {
     const area = evalSelectArea.value;
     const count = parseInt(evalNumPreguntas.value, 10) || 30;
     const incluirClaves = evalIncluirClaves.checked;
 
-    [btnEvalWord, btnEvalExcel, btnEvalPdf, btnEvalGforms].forEach(b => b.setAttribute('disabled', 'true'));
+    // Disable buttons during generation
+    [btnEvalWord, btnEvalExcel, btnEvalPdf].forEach(b => b.setAttribute('disabled', 'true'));
     evalWarningText.style.display = 'none';
 
     try {
-      // Reutilizar la selección existente o generar una nueva
-      if (!currentEvaluacion || currentEvaluacion.area !== area || currentEvaluacion.count !== count) {
-        const { questions, warning } = await seleccionarPreguntasAleatorias(area, count);
-        currentEvaluacion = { questions, area, count };
-        if (warning) {
-          evalWarningText.textContent = warning;
-          evalWarningText.style.display = 'block';
-        }
-      }
+      const { questions, warning } = await seleccionarPreguntasAleatorias(area, count);
 
-      const { questions } = currentEvaluacion;
+      if (warning) {
+        evalWarningText.textContent = warning;
+        evalWarningText.style.display = 'block';
+      }
 
       if (formato === 'word') {
         if (!window.docx) throw new Error('La librería docx no está cargada. Verifica tu conexión a internet.');
@@ -211,21 +182,18 @@ function setupEventListeners() {
         exportarExcel(questions, area, incluirClaves);
       } else if (formato === 'pdf') {
         exportarPDF(questions, area, incluirClaves);
-      } else if (formato === 'gforms') {
-        exportarGoogleForms(questions, area, incluirClaves);
       }
 
     } catch (err) {
       alert(`Error al generar la evaluación: ${err.message}`);
     } finally {
-      [btnEvalWord, btnEvalExcel, btnEvalPdf, btnEvalGforms].forEach(b => b.removeAttribute('disabled'));
+      [btnEvalWord, btnEvalExcel, btnEvalPdf].forEach(b => b.removeAttribute('disabled'));
     }
   }
 
   btnEvalWord.addEventListener('click', () => ejecutarExportacion('word'));
   btnEvalExcel.addEventListener('click', () => ejecutarExportacion('excel'));
   btnEvalPdf.addEventListener('click', () => ejecutarExportacion('pdf'));
-  btnEvalGforms.addEventListener('click', () => ejecutarExportacion('gforms'));
 }
 
 // Switch between SPA views
@@ -731,5 +699,49 @@ async function generateTextForAllAreas() {
   showModal('Banco Completo de Preguntas ICFES', combinedText);
 }
 
+// ── Backup / Restore ──────────────────────────────────────────────────────────
+
+async function handleExportarBanco() {
+  try {
+    const result = await exportarBanco();
+    alert(`✅ Respaldo generado correctamente.\n${result.files} archivos y ${result.questions} preguntas exportadas.`);
+  } catch (err) {
+    alert('❌ Error al generar el respaldo: ' + err.message);
+  }
+}
+
+async function handleRestaurarBanco(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const confirmar = confirm(
+    `¿Restaurar banco desde "${file.name}"?\n\nEsto agregará las preguntas del respaldo a tu banco actual sin borrar lo que ya tienes.`
+  );
+  if (!confirmar) {
+    event.target.value = '';
+    return;
+  }
+
+  try {
+    const result = await restaurarBanco(file);
+    alert(`✅ Banco restaurado correctamente.\n${result.files} archivos y ${result.questions} preguntas importadas.`);
+    await init(); // refresh dashboard counts
+  } catch (err) {
+    alert('❌ Error al restaurar: ' + err.message);
+  }
+  event.target.value = '';
+}
+
 // Start application
-window.addEventListener('DOMContentLoaded', init);
+window.addEventListener('DOMContentLoaded', () => {
+  init();
+
+  // Backup buttons
+  const btnExportar = document.getElementById('btn-exportar-banco');
+  const inputRestaurar = document.getElementById('input-restaurar-banco');
+  const btnRestaurar = document.getElementById('btn-restaurar-banco');
+
+  if (btnExportar) btnExportar.addEventListener('click', handleExportarBanco);
+  if (btnRestaurar) btnRestaurar.addEventListener('click', () => inputRestaurar.click());
+  if (inputRestaurar) inputRestaurar.addEventListener('change', handleRestaurarBanco);
+});
