@@ -628,7 +628,6 @@ function crearFormulario() {
 
   script += `
   // Configuración final del quiz
-  var settings = form.getSettings();
   form.setShowLinkToRespondAgain(false);
 
   Logger.log('✅ Formulario creado: ' + form.getEditUrl());
