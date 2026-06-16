@@ -463,9 +463,37 @@ export async function parseDocx(arrayBuffer, progressCallback) {
     }
   });
 
-  // Extract text and parse
-  const textResult = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
-  const text = textResult.value;
+  // Prepend numbers to <ol> list items in the DOM to handle MS Word automatic numbering
+  doc.querySelectorAll('ol').forEach(olEl => {
+    let index = 1;
+    olEl.querySelectorAll(':scope > li').forEach(liEl => {
+      liEl.prepend(doc.createTextNode(`${index}. `));
+      index++;
+    });
+  });
+
+  // Extract text from the DOM, converting <br> to newlines and preserving block spacing
+  let text = '';
+  function extractTextFromNode(node) {
+    if (node.nodeType === 3) { // Text node
+      text += node.nodeValue;
+    } else if (node.nodeType === 1) { // Element node
+      const tagName = node.tagName.toLowerCase();
+      if (tagName === 'br') {
+        text += '\n';
+      } else {
+        const isBlock = ['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'tr', 'td'].includes(tagName);
+        if (isBlock && text.length > 0 && !text.endsWith('\n')) {
+          text += '\n';
+        }
+        node.childNodes.forEach(extractTextFromNode);
+        if (isBlock && !text.endsWith('\n')) {
+          text += '\n';
+        }
+      }
+    }
+  }
+  extractTextFromNode(doc.body);
 
   if (progressCallback) progressCallback(80);
   const questions = parseQuestionsFromText(text, {}, 'docx');
