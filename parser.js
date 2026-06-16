@@ -15,6 +15,11 @@ function normalizeText(text) {
     .replace(/\u00a0/g, ' ') // Replace non-breaking spaces
     .trim();
 
+  // Fix stuck question numbers (e.g. "B2. Para un" or "B2.Para un") due to soft line breaks (Shift+Enter) in DOCX
+  normalized = normalized
+    .replace(/([^\s\n])(([1-9][0-9]?|1[0-9]{2})\s*[\.\-\)\:]+\s*(?=[A-ZÁÉÍÓÚÑ¿\d]))/g, '$1\n$2')
+    .replace(/([^\s\n])((?:Pregunta\s+|N°\s*)([1-9][0-9]?|1[0-9]{2})\b)/gi, '$1\n$2');
+
   // Fix stuck options (e.g. "texto.B. Opción") due to soft line breaks (Shift+Enter) in DOCX
   normalized = normalized
     .replace(/([^\s\n])([A-Da-d][\.\-\)]\s+)/g, '$1\n$2')
