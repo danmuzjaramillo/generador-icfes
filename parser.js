@@ -9,11 +9,18 @@
  * Normalizes text to make extraction easier.
  */
 function normalizeText(text) {
-  return text
+  let normalized = text
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .replace(/\u00a0/g, ' ') // Replace non-breaking spaces
     .trim();
+
+  // Fix stuck options (e.g. "texto.B. Opción") due to soft line breaks (Shift+Enter) in DOCX
+  normalized = normalized
+    .replace(/([^\s\n])([A-Da-d][\.\-\)]\s+)/g, '$1\n$2')
+    .replace(/([^\s\n])(Respuesta\s+Correcta\s*:)/gi, '$1\n$2');
+
+  return normalized;
 }
 
 /**
