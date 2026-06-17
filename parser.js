@@ -22,7 +22,7 @@ function normalizeText(text) {
 
   // Fix stuck options (e.g. "texto.B. Opción") due to soft line breaks (Shift+Enter) in DOCX
   normalized = normalized
-    .replace(/([^\s\n])([A-Da-d][\.\-\)]\s+)/g, '$1\n$2')
+    .replace(/([^\s\n])([A-D][\.\-\)]\s+)/g, '$1\n$2')
     .replace(/([^\s\n])(Respuesta\s+Correcta\s*:)/gi, '$1\n$2');
 
   return normalized;
@@ -197,7 +197,7 @@ function parseQuestionsFromText(text, imagesByPage = {}, fileType = 'pdf') {
     }
 
     // Extract "Respuesta Correcta: X" from the full block (may fall after optD or outside its match)
-    const respCorrectaRegex = /\bRespuesta\s+Correcta\s*:\s*([A-Da-d])\b/i;
+    const respCorrectaRegex = /\bRespuesta\s+Correcta\s*:\s*([A-D])\b/i;
     const respMatch = blockText.match(respCorrectaRegex);
 
     // Also clean it from optD in case it landed there
@@ -233,7 +233,7 @@ function parseQuestionsFromText(text, imagesByPage = {}, fileType = 'pdf') {
   const keyMatch = normalized.match(answerKeyRegex);
   if (keyMatch) {
     const keySection = keyMatch[1];
-    const pairsRegex = /(\d+)\s*[\.\-\:\s]*\s*([A-Da-d])\b/g;
+    const pairsRegex = /(\d+)\s*[\.\-\:\s]*\s*([A-D])\b/gi;
     let pair;
     const answerKeys = {};
     while ((pair = pairsRegex.exec(keySection)) !== null) {
