@@ -38,10 +38,23 @@ export async function seleccionarPreguntasAleatorias(area, count = 30) {
   if (all.length === 0) {
     throw new Error(`No hay preguntas guardadas en el área de ${areaLabels[area]}.`);
   }
-  const shuffled = shuffle(all);
+
+  // Deduplicate by bodyText to ensure no repeated questions in the evaluation
+  // (prevents issues if the same question was saved multiple times in the DB)
+  const seenTexts = new Set();
+  const unique = [];
+  for (const q of all) {
+    const key = (q.bodyText || '').trim().toLowerCase();
+    if (!seenTexts.has(key)) {
+      seenTexts.add(key);
+      unique.push(q);
+    }
+  }
+
+  const shuffled = shuffle(unique);
   const selected = shuffled.slice(0, Math.min(count, shuffled.length));
   const warning = selected.length < count
-    ? `Nota: Solo hay ${selected.length} preguntas disponibles (se solicitaron ${count}).`
+    ? `Nota: Solo hay ${selected.length} preguntas únicas disponibles (se solicitaron ${count}).`
     : null;
   return { questions: selected, warning };
 }
@@ -70,6 +83,18 @@ export async function exportarWord(questions, area, incluirClaves) {
     if (dataUrl.startsWith('data:image/gif')) return 'gif';
     if (dataUrl.startsWith('data:image/bmp')) return 'bmp';
     return 'jpg';
+  }
+
+  /**
+   * Gets the natural dimensions of an image from a data URL (base64).
+   */
+  function getImageDimensionsFromDataUrl(dataUrl) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
   }
 
   const areaLabel = areaLabels[area] || area;
@@ -206,13 +231,37 @@ export async function exportarWord(questions, area, incluirClaves) {
     if (q.images && q.images.length > 0) {
       for (const imgSrc of q.images) {
         try {
+          // Calculate image dimensions with BOTH max width and max height constraints
+          // (same approach as PDF export which uses max-width: 100%; max-height: 220px)
+          const dims = await getImageDimensionsFromDataUrl(imgSrc);
+          // Page: Letter (8.5" wide). Margins: 0.875" each side → usable width = 6.75"
+          // docx ImageRun treats width/height as pixels at 96 DPI:
+          //   Tables (images with tabular data) need more width to be readable.
+          //   maxWidth 600 px / 96 DPI = 6.25" — close to full usable width (6.75")
+          //   maxHeight 300 px / 96 DPI = 3.13" — keeps tall images under control
+          const maxWidth = 600;
+          const maxHeight = 300;
+          let targetWidth = maxWidth;
+          let targetHeight = 450; // fallback 4:3 ratio for 600px width
+          if (dims && dims.width > 0) {
+            // Scale based on width first
+            let w = maxWidth;
+            let h = Math.round(dims.height * (w / dims.width));
+            // If height exceeds max, recalculate based on height constraint
+            if (h > maxHeight) {
+              h = maxHeight;
+              w = Math.round(dims.width * (h / dims.height));
+            }
+            targetWidth = w;
+            targetHeight = h;
+          }
           children.push(
             new Paragraph({
               children: [
                 new ImageRun({
                   data: base64ToUint8Array(imgSrc),
                   type: imgType(imgSrc),
-                  transformation: { width: 400, height: 280 }
+                  transformation: { width: targetWidth, height: targetHeight }
                 })
               ],
               alignment: AlignmentType.CENTER,
@@ -276,7 +325,8 @@ export async function exportarWord(questions, area, incluirClaves) {
     const { Table, TableRow, TableCell, ShadingType } = window.docx;
     const border = { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' };
     const borders = { top: border, bottom: border, left: border, right: border };
-    const cellWidth = { size: 936, type: WidthType.DXA }; // 9360 / 10 cols
+    // Table set to 100% width via PERCENTAGE; cells have no explicit width so Word auto-distributes evenly.
+    const cellWidth = undefined;
 
     // Header row
     const headerCells = ['N°', ...Array.from({ length: 9 }, (_, i) => String(i + 1))].map(txt =>
@@ -284,9 +334,9 @@ export async function exportarWord(questions, area, incluirClaves) {
         borders,
         width: cellWidth,
         shading: { fill: '6366F1', type: ShadingType.CLEAR },
-        margins: { top: 80, bottom: 80, left: 80, right: 80 },
+        margins: { top: 100, bottom: 100, left: 80, right: 80 },
         children: [new Paragraph({
-          children: [new TextRun({ text: txt, font: 'Arial', size: 18, bold: true, color: 'FFFFFF' })],
+          children: [new TextRun({ text: txt, font: 'Arial', size: 20, bold: true, color: 'FFFFFF' })],
           alignment: AlignmentType.CENTER
         })]
       })
@@ -302,18 +352,18 @@ export async function exportarWord(questions, area, incluirClaves) {
         new TableCell({
           borders, width: cellWidth,
           shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
-          margins: { top: 80, bottom: 80, left: 80, right: 80 },
+          margins: { top: 100, bottom: 100, left: 80, right: 80 },
           children: [new Paragraph({
-            children: [new TextRun({ text: 'N°', font: 'Arial', size: 17, bold: true })],
+            children: [new TextRun({ text: 'N°', font: 'Arial', size: 18, bold: true })],
             alignment: AlignmentType.CENTER
           })]
         }),
         ...rowNums.map(qi => new TableCell({
           borders, width: cellWidth,
           shading: { fill: 'F9FAFB', type: ShadingType.CLEAR },
-          margins: { top: 80, bottom: 80, left: 80, right: 80 },
+          margins: { top: 100, bottom: 100, left: 80, right: 80 },
           children: [new Paragraph({
-            children: [new TextRun({ text: qi < questions.length ? String(qi + 1) : '', font: 'Arial', size: 17 })],
+            children: [new TextRun({ text: qi < questions.length ? String(qi + 1) : '', font: 'Arial', size: 18 })],
             alignment: AlignmentType.CENTER
           })]
         }))
@@ -324,20 +374,20 @@ export async function exportarWord(questions, area, incluirClaves) {
         new TableCell({
           borders, width: cellWidth,
           shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
-          margins: { top: 80, bottom: 80, left: 80, right: 80 },
+          margins: { top: 100, bottom: 100, left: 80, right: 80 },
           children: [new Paragraph({
-            children: [new TextRun({ text: 'Rta.', font: 'Arial', size: 17, bold: true })],
+            children: [new TextRun({ text: 'Rta.', font: 'Arial', size: 18, bold: true })],
             alignment: AlignmentType.CENTER
           })]
         }),
         ...rowNums.map(qi => new TableCell({
           borders, width: cellWidth,
           shading: { fill: 'ECFDF5', type: ShadingType.CLEAR },
-          margins: { top: 80, bottom: 80, left: 80, right: 80 },
+          margins: { top: 100, bottom: 100, left: 80, right: 80 },
           children: [new Paragraph({
             children: [new TextRun({
               text: qi < questions.length ? (questions[qi].correctOption || '—') : '',
-              font: 'Arial', size: 18, bold: true, color: '10B981'
+              font: 'Arial', size: 20, bold: true, color: '10B981'
             })],
             alignment: AlignmentType.CENTER
           })]
@@ -349,8 +399,7 @@ export async function exportarWord(questions, area, incluirClaves) {
     }
 
     children.push(new Table({
-      width: { size: 9360, type: WidthType.DXA },
-      columnWidths: Array(10).fill(936),
+      width: { size: 5000, type: WidthType.PERCENTAGE }, // 100% of page width
       rows: tableRows
     }));
   }
