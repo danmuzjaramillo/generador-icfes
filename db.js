@@ -157,6 +157,49 @@ export async function deleteQuestion(id) {
   });
 }
 
+export async function deleteAllQuestionsByArea(area) {
+  const questions = await getQuestionsByArea(area);
+
+  // Collect unique fileIds associated with these questions
+  const fileIds = [...new Set(questions.map(q => q.fileId).filter(id => id != null))];
+
+  // Delete the questions
+  const deletePromises = questions.map(q => deleteQuestion(q.id));
+  await Promise.all(deletePromises);
+
+  // Also delete the associated file records from the 'files' store
+  if (fileIds.length > 0) {
+    const db = await initDB();
+    const fileDeletePromises = fileIds.map(fileId =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction(['files'], 'readwrite');
+        const store = transaction.objectStore('files');
+        const request = store.delete(Number(fileId));
+        request.onsuccess = () => resolve();
+        request.onerror = (event) => reject(event.target.error);
+      })
+    );
+    await Promise.all(fileDeletePromises);
+  }
+
+  return questions.length;
+}
+
+/**
+ * Deletes ALL records from both object stores (files and questions).
+ * This completely empties the database.
+ */
+export async function borrarTodoElBanco() {
+  const db = await initDB();
+  const tx = db.transaction(['files', 'questions'], 'readwrite');
+  tx.objectStore('files').clear();
+  tx.objectStore('questions').clear();
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = (event) => reject(event.target.error);
+  });
+}
+
 export async function updateQuestionCount(fileId, count) {
   const db = await initDB();
   return new Promise((resolve, reject) => {
