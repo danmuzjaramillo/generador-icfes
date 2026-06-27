@@ -38,6 +38,7 @@ const browserAreaCountSummary = document.getElementById('browser-area-count-summ
 const savedQuestionsList = document.getElementById('saved-questions-list');
 const btnBackToDashboard = document.getElementById('btn-back-to-dashboard');
 const btnGenerateTextArea = document.getElementById('btn-generate-text-area');
+const btnGenerateTextAll = document.getElementById('btn-generate-text-all');
 const btnLimpiarCarpeta = document.getElementById('btn-limpiar-carpeta');
 
 // Modal Elements
