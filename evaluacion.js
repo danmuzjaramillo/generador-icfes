@@ -69,6 +69,24 @@ export async function exportarWord(questions, area, incluirClaves) {
     Header, Footer, PageBreak, WidthType
   } = window.docx;
 
+  // Precalcular dimensiones de todas las imágenes ANTES del loop de construcción
+  const imageDimensions = new Map();
+  const dimPromises = [];
+  for (const q of questions) {
+    if (q.images && q.images.length > 0) {
+      for (const imgSrc of q.images) {
+        if (!imageDimensions.has(imgSrc)) {
+          dimPromises.push(
+            getImageDimensionsFromDataUrl(imgSrc).then(dims => {
+              imageDimensions.set(imgSrc, dims);
+            })
+          );
+        }
+      }
+    }
+  }
+  await Promise.all(dimPromises);
+
   // Converts a base64 data URL to Uint8Array for ImageRun
   function base64ToUint8Array(dataUrl) {
     const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
@@ -231,12 +249,10 @@ export async function exportarWord(questions, area, incluirClaves) {
     if (q.images && q.images.length > 0) {
       for (const imgSrc of q.images) {
         try {
-          // Calculate image dimensions with BOTH max width and max height constraints
-          // (same approach as PDF export which uses max-width: 100%; max-height: 220px)
-          const dims = await getImageDimensionsFromDataUrl(imgSrc);
+          // Use pre-calculated dimensions (no await here)
+          const dims = imageDimensions.get(imgSrc);
           // Page: Letter (8.5" wide). Margins: 0.875" each side → usable width = 6.75"
           // docx ImageRun treats width/height as pixels at 96 DPI:
-          //   Tables (images with tabular data) need more width to be readable.
           //   maxWidth 600 px / 96 DPI = 6.25" — close to full usable width (6.75")
           //   maxHeight 300 px / 96 DPI = 3.13" — keeps tall images under control
           const maxWidth = 600;
