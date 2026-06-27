@@ -1,4 +1,4 @@
-import { initDB, addQuestion, getQuestionsByArea, deleteQuestion, addFile, getFiles, deleteFile, exportarBanco, restaurarBanco } from './db.js';
+import { initDB, addQuestion, getQuestionsByArea, deleteQuestion, deleteAllQuestionsByArea, addFile, getFiles, deleteFile, exportarBanco, restaurarBanco, borrarTodoElBanco } from './db.js';
 import { parsePDF, parseDocx } from './parser.js';
 import { seleccionarPreguntasAleatorias, exportarWord, exportarExcel, exportarPDF, exportarGoogleForms } from './evaluacion.js';
 
@@ -38,7 +38,7 @@ const browserAreaCountSummary = document.getElementById('browser-area-count-summ
 const savedQuestionsList = document.getElementById('saved-questions-list');
 const btnBackToDashboard = document.getElementById('btn-back-to-dashboard');
 const btnGenerateTextArea = document.getElementById('btn-generate-text-area');
-const btnGenerateTextAll = document.getElementById('btn-generate-text-all');
+const btnLimpiarCarpeta = document.getElementById('btn-limpiar-carpeta');
 
 // Modal Elements
 const textModal = document.getElementById('text-modal');
@@ -140,6 +140,9 @@ function setupEventListeners() {
   // Generate text buttons
   btnGenerateTextArea.addEventListener('click', () => generateTextForArea(currentBrowsingArea));
   btnGenerateTextAll.addEventListener('click', () => generateTextForAllAreas());
+
+  // Limpiar Carpeta (delete all questions in current area)
+  btnLimpiarCarpeta.addEventListener('click', handleLimpiarCarpeta);
 
   // ── Evaluación Modal ──────────────────────────────────────────
   btnGenerarEvaluacion.addEventListener('click', () => {
@@ -744,6 +747,27 @@ async function generateTextForAllAreas() {
   showModal('Banco Completo de Preguntas ICFES', combinedText);
 }
 
+// ── Limpiar Carperta (delete all questions in current area) ──────────────────
+
+async function handleLimpiarCarpeta() {
+  const area = currentBrowsingArea;
+  const areaLabel = areaLabels[area] || area;
+
+  const confirmacion = confirm(
+    `¿Estás seguro de que deseas ELIMINAR TODAS las preguntas de "${areaLabel}"?\n\nEsta acción no se puede deshacer.`
+  );
+  if (!confirmacion) return;
+
+  try {
+    const cantidad = await deleteAllQuestionsByArea(area);
+    alert(`✅ Se eliminaron ${cantidad} preguntas de "${areaLabel}".`);
+    await renderSavedQuestions();
+    await updateCounts();
+  } catch (err) {
+    alert('❌ Error al limpiar la carpeta: ' + err.message);
+  }
+}
+
 // ── Backup / Restore ──────────────────────────────────────────────────────────
 
 async function handleExportarBanco() {
@@ -777,6 +801,33 @@ async function handleRestaurarBanco(event) {
   event.target.value = '';
 }
 
+async function handleBorrarTodoElBanco() {
+  const confirmacion1 = confirm(
+    '⚠️ ADVERTENCIA GRAVE ⚠️\n\n' +
+    'Estás a punto de BORRAR TODO el contenido de la base de datos local:\n' +
+    '- Todas las preguntas de TODAS las carpetas\n' +
+    '- Todos los archivos subidos\n\n' +
+    'Esta acción NO se puede deshacer.\n\n' +
+    '¿Deseas continuar?'
+  );
+  if (!confirmacion1) return;
+
+  const confirmacion2 = confirm(
+    'CONFIRMACIÓN FINAL\n\n' +
+    '¿Estás ABSOLUTAMENTE SEGURO de que quieres eliminar TODOS los datos?\n' +
+    'No quedará ningún archivo ni pregunta en ninguna carpeta.'
+  );
+  if (!confirmacion2) return;
+
+  try {
+    await borrarTodoElBanco();
+    alert('✅ La base de datos ha sido vaciada completamente.');
+    await init(); // refresca el dashboard y los contadores
+  } catch (err) {
+    alert('❌ Error al vaciar la base de datos: ' + err.message);
+  }
+}
+
 // Start application
 window.addEventListener('DOMContentLoaded', () => {
   init();
@@ -789,4 +840,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (btnExportar) btnExportar.addEventListener('click', handleExportarBanco);
   if (btnRestaurar) btnRestaurar.addEventListener('click', () => inputRestaurar.click());
   if (inputRestaurar) inputRestaurar.addEventListener('change', handleRestaurarBanco);
+
+  const btnBorrarTodo = document.getElementById('btn-borrar-todo');
+  if (btnBorrarTodo) btnBorrarTodo.addEventListener('click', handleBorrarTodoElBanco);
 });
