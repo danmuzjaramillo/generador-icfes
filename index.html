@@ -57,6 +57,10 @@
             Restaurar Respaldo
           </button>
           <input type="file" id="input-restaurar-banco" accept=".json" style="display:none;">
+          <button id="btn-borrar-todo" style="width:100%;padding:8px 12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:inherit;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            Vaciar Base de Datos
+          </button>
         </div>
         <p>ICFES Extractor v1.0</p>
         <p style="margin-top: 4px; opacity: 0.7;">Almacenamiento Local Seguro</p>
@@ -199,9 +203,15 @@
             <h3 style="font-size: 24px;" id="browser-area-title">Área</h3>
             <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;" id="browser-area-count-summary">0 preguntas guardadas en esta categoría.</p>
           </div>
-          <button class="btn btn-primary" id="btn-generate-text-area">
-            Generar Texto del Área
-          </button>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-primary" id="btn-generate-text-area">
+              Generar Texto del Área
+            </button>
+            <button class="btn btn-danger" id="btn-limpiar-carpeta">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              Limpiar Carpeta
+            </button>
+          </div>
         </div>
 
         <div class="saved-questions-container" id="saved-questions-list">
